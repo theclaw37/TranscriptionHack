@@ -18,7 +18,7 @@
     },
     "AWSSDK.S3": "3.3.5.11",
     "Amazon.Lambda.SNSEvents": "1.0.0",
-    "MySql.Data": "7.0.7-m61"
+    "AWSSDK.DynamoDBv2": "3.3.4.4"
   },
 
   "tools": {
