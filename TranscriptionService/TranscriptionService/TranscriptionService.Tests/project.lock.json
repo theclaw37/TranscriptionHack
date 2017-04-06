@@ -31,6 +31,20 @@
           "lib/netstandard1.3/Amazon.Lambda.Core.dll": {}
         }
       },
+      "Amazon.Lambda.S3Events/1.0.1": {
+        "type": "package",
+        "dependencies": {
+          "AWSSDK.S3": "3.3.5.10",
+          "NETStandard.Library": "1.6.0",
+          "System.Runtime": "4.1.0"
+        },
+        "compile": {
+          "lib/netstandard1.3/Amazon.Lambda.S3Events.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard1.3/Amazon.Lambda.S3Events.dll": {}
+        }
+      },
       "Amazon.Lambda.Serialization.Json/1.0.1": {
         "type": "package",
         "dependencies": {
@@ -2661,6 +2675,7 @@
           "AWSSDK.S3": "3.3.5.11",
           "Amazon.Lambda.APIGatewayEvents": "1.0.2",
           "Amazon.Lambda.Core": "1.0.0",
+          "Amazon.Lambda.S3Events": "1.0.1",
           "Amazon.Lambda.SNSEvents": "1.0.0",
           "Amazon.Lambda.Serialization.Json": "1.0.1",
           "Microsoft.NETCore.App": "1.0.0"
@@ -2714,6 +2729,17 @@
         "src/Amazon.Lambda.Core/LambdaLogger.cs",
         "src/Amazon.Lambda.Core/LambdaSerializerAttribute.cs",
         "src/Amazon.Lambda.Core/Properties/AssemblyInfo.cs"
+      ]
+    },
+    "Amazon.Lambda.S3Events/1.0.1": {
+      "sha512": "8nnTTccCgNbjKmUZc7eNQbXIe7tH1AB67Dp0CregdVYkFIrIUFz709KwZHFkfjwx8nB4JXfLA9K/p+cP2uQHwQ==",
+      "type": "package",
+      "path": "Amazon.Lambda.S3Events/1.0.1",
+      "files": [
+        "Amazon.Lambda.S3Events.1.0.1.nupkg.sha512",
+        "Amazon.Lambda.S3Events.nuspec",
+        "lib/netstandard1.3/Amazon.Lambda.S3Events.dll",
+        "lib/netstandard1.3/Amazon.Lambda.S3Events.xml"
       ]
     },
     "Amazon.Lambda.Serialization.Json/1.0.1": {
