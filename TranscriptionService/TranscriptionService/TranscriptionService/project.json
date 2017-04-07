@@ -19,7 +19,8 @@
     "AWSSDK.S3": "3.3.5.11",
     "Amazon.Lambda.SNSEvents": "1.0.0",
     "AWSSDK.DynamoDBv2": "3.3.4.4",
-    "Amazon.Lambda.S3Events": "1.0.1"
+    "Amazon.Lambda.S3Events": "1.0.1",
+    "Amazon.Lambda.ConfigEvents": "1.0.0"
   },
 
   "tools": {

@@ -82,10 +82,38 @@
       }
     },
 
-	"GetTranscripts" : {
+	"ProcessTranscriptsByScheduler" : {
       "Type" : "AWS::Serverless::Function",
       "Properties": {
-        "Handler": "TranscriptionService::TranscriptionService.Functions::GetTranscripts",
+        "Handler": "TranscriptionService::TranscriptionService.Functions::ProcessTranscriptsByScheduler",
+        "Runtime": "dotnetcore1.0",
+        "CodeUri": "",
+        "Description": "Function to send wav file to Voci",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [ "AWSLambdaFullAccess" ],
+        "Environment" : {
+          "Variables" : {
+            "VociToken" : ""
+          }
+        },
+        "Events": {
+		 "PutResource" : {
+		     "Type" : "Schedule",
+		     "Properties" : {
+		         "Input" : "",
+		         "Schedule" : "rate(1 minute)"
+		     }
+		 }          
+        }
+      }
+    },
+
+	"ReceiveTranscripts" : {
+      "Type" : "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "TranscriptionService::TranscriptionService.Functions::ReceiveTranscripts",
         "Runtime": "dotnetcore1.0",
         "CodeUri": "",
         "Description": "Function to get transcripts from Voci",
@@ -102,7 +130,58 @@
           "PutResource": {
             "Type": "Api",
             "Properties": {
-              "Path": "/get-transcripts",
+              "Path": "/receive-transcripts",
+              "Method": "GET"
+            }
+          }
+        }
+      }
+    },
+
+	"ReceiveTranscriptsByScheduler" : {
+      "Type" : "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "TranscriptionService::TranscriptionService.Functions::ReceiveTranscriptsByScheduler",
+        "Runtime": "dotnetcore1.0",
+        "CodeUri": "",
+        "Description": "Function to send wav file to Voci",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [ "AWSLambdaFullAccess" ],
+        "Environment" : {
+          "Variables" : {
+            "VociToken" : ""
+          }
+        },
+        "Events": {
+		 "PutResource" : {
+		     "Type" : "Schedule",
+		     "Properties" : {
+		         "Input" : "",
+		         "Schedule" : "rate(1 minute)"
+		     }
+		 }          
+        }
+      }
+    },
+
+	"GetTranscript" : {
+      "Type" : "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "TranscriptionService::TranscriptionService.Functions::GetTranscript",
+        "Runtime": "dotnetcore1.0",
+        "CodeUri": "",
+        "Description": "Function to get transcripts from Voci",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [ "AWSLambdaFullAccess" ],        
+        "Events": {
+          "PutResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/transcript/{Id}",
               "Method": "GET"
             }
           }

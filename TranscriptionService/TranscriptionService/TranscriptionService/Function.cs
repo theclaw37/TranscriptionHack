@@ -14,6 +14,8 @@ using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
+using Amazon.Lambda.ConfigEvents;
+using Amazon.Lambda.SNSEvents;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Newtonsoft.Json;
@@ -27,6 +29,7 @@ namespace TranscriptionService
     public class Functions
     {
         private const string VOCI_TOKEN = "VociToken";
+        public const string ID_QUERY_STRING_NAME = "Id";
 
         IDynamoDBContext DDBContext { get; set; }
         IAmazonS3 S3Client { get; set; }
@@ -108,10 +111,28 @@ namespace TranscriptionService
             return response;
         }
 
+        public async Task ProcessTranscriptsByScheduler(JObject scheduledEvent, ILambdaContext context)
+        {
+            await ProcessTranscriptRequests(context);
+        }
+
         public async Task<APIGatewayProxyResponse> ProcessTranscripts(APIGatewayProxyRequest request, ILambdaContext context)
         {
+            var transcripts = await ProcessTranscriptRequests(context);
+            var response = new APIGatewayProxyResponse
+            {
+                StatusCode = (int)HttpStatusCode.OK,
+                Body = JsonConvert.SerializeObject(transcripts),
+                Headers = new Dictionary<string, string> { { "Content-Type", "application/json" } }
+            };
+
+            return response;
+        }
+
+        private async Task<List<Transcript>> ProcessTranscriptRequests(ILambdaContext context)
+        {
             context.Logger.LogLine("Getting transcripts");
-            var search = DDBContext.ScanAsync<Transcript>(new[] {new ScanCondition("VociRequestId", ScanOperator.IsNull) });
+            var search = DDBContext.ScanAsync<Transcript>(new[] {new ScanCondition("VociRequestId", ScanOperator.IsNull)});
             var transcripts = await search.GetNextSetAsync();
             context.Logger.LogLine($"Found {transcripts.Count} transcripts");
 
@@ -125,6 +146,17 @@ namespace TranscriptionService
             //await DDBContext.SaveAsync(transcripts, new DynamoDBOperationConfig { Conversion = DynamoDBEntryConversion.V2, IndexName = "Id" });
             UpdateTranscripts(transcripts);
             context.Logger.LogLine("Save transcript ended");
+            return transcripts;
+        }
+
+        public async Task ReceiveTranscriptsByScheduler(JObject scheduledEvent, ILambdaContext context)
+        {
+            await ReceiveTranscriptsFromVoci(context);
+        }
+        public async Task<APIGatewayProxyResponse> ReceiveTranscripts(APIGatewayProxyRequest request, ILambdaContext context)
+        {
+            var transcripts = await ReceiveTranscriptsFromVoci(context);
+
             var response = new APIGatewayProxyResponse
             {
                 StatusCode = (int)HttpStatusCode.OK,
@@ -135,7 +167,45 @@ namespace TranscriptionService
             return response;
         }
 
-        public async Task<APIGatewayProxyResponse> GetTranscripts(APIGatewayProxyRequest request, ILambdaContext context)
+        public async Task<APIGatewayProxyResponse> GetTranscript(APIGatewayProxyRequest request, ILambdaContext context)
+        {
+            string transcriptId = null;
+            if (request.PathParameters != null && request.PathParameters.ContainsKey(ID_QUERY_STRING_NAME))
+                transcriptId = request.PathParameters[ID_QUERY_STRING_NAME];
+            else if (request.QueryStringParameters != null && request.QueryStringParameters.ContainsKey(ID_QUERY_STRING_NAME))
+                transcriptId = request.QueryStringParameters[ID_QUERY_STRING_NAME];
+
+            if (string.IsNullOrEmpty(transcriptId))
+            {
+                return new APIGatewayProxyResponse
+                {
+                    StatusCode = (int)HttpStatusCode.BadRequest,
+                    Body = $"Missing required parameter {ID_QUERY_STRING_NAME}"
+                };
+            }
+
+            context.Logger.LogLine($"Getting transcript {transcriptId}");
+            var transcript = await DDBContext.LoadAsync<Transcript>(transcriptId);
+            context.Logger.LogLine($"Found transcript: {transcript != null}");
+
+            if (string.IsNullOrEmpty(transcript?.VociTranscript))
+            {
+                return new APIGatewayProxyResponse
+                {
+                    StatusCode = (int)HttpStatusCode.NotFound
+                };
+            }
+
+            var response = new APIGatewayProxyResponse
+            {
+                StatusCode = (int)HttpStatusCode.OK,
+                Body = transcript.VociTranscript,
+                Headers = new Dictionary<string, string> { { "Content-Type", "application/json" } }
+            };
+            return response;
+        }
+
+        private async Task<List<Transcript>> ReceiveTranscriptsFromVoci(ILambdaContext context)
         {
             var client = new HttpClient();
 
@@ -152,32 +222,21 @@ namespace TranscriptionService
             var token = Environment.GetEnvironmentVariable(VOCI_TOKEN);
 
             foreach (var transcript in transcripts)
-            {                
+            {
                 var urlTranscribeResult =
                     $"https://vcloud.vocitec.com/transcribe/result?token={token}&requestid={transcript.VociRequestId}";
                 var transcribeResultResponse = await client.GetAsync(urlTranscribeResult);
                 if (transcribeResultResponse.IsSuccessStatusCode)
                 {
-                    transcript.VociTranscript = await transcribeResultResponse.Content.ReadAsStringAsync();
-                }                
+                    var transcriptUrl = await transcribeResultResponse.Content.ReadAsStringAsync();
+                    context.Logger.LogLine($"TranscriptUrl: {transcriptUrl}");
+                    transcript.VociTranscript = transcriptUrl;
+                }
             }
-
-            context.Logger.LogLine($"Received transcribtions");
-
 
             //await DDBContext.SaveAsync(transcripts, new DynamoDBOperationConfig {Conversion = DynamoDBEntryConversion.V2, IndexName = "Id"});
             UpdateTranscripts(transcripts);
-
-            context.Logger.LogLine($"Updated transcribtions");
-
-            var response = new APIGatewayProxyResponse
-            {
-                StatusCode = (int)HttpStatusCode.OK,
-                Body = JsonConvert.SerializeObject(transcripts),
-                Headers = new Dictionary<string, string> { { "Content-Type", "application/json" } }
-            };
-
-            return response;
+            return transcripts;
         }
 
         private async void  UpdateTranscripts(List<Transcript> transcripts)

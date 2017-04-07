@@ -17,6 +17,18 @@
           "lib/netstandard1.3/Amazon.Lambda.APIGatewayEvents.dll": {}
         }
       },
+      "Amazon.Lambda.ConfigEvents/1.0.0": {
+        "type": "package",
+        "dependencies": {
+          "System.Runtime": "4.1.0"
+        },
+        "compile": {
+          "lib/netstandard1.3/Amazon.Lambda.ConfigEvents.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard1.3/Amazon.Lambda.ConfigEvents.dll": {}
+        }
+      },
       "Amazon.Lambda.Core/1.0.0": {
         "type": "package",
         "dependencies": {
@@ -2371,6 +2383,20 @@
         "src/Amazon.Lambda.APIGatewayEvents/APIGatewayProxyRequest.cs",
         "src/Amazon.Lambda.APIGatewayEvents/APIGatewayProxyResponse.cs",
         "src/Amazon.Lambda.APIGatewayEvents/Properties/AssemblyInfo.cs"
+      ]
+    },
+    "Amazon.Lambda.ConfigEvents/1.0.0": {
+      "sha512": "r8B7e2ga7+n0h5daMewzwUcyoqzZ7gxSN8bSw4VUV4EO4Ui1dezR5foNuvJowLJdaykXS4QHDvM6qqX1gYPWfg==",
+      "type": "package",
+      "path": "Amazon.Lambda.ConfigEvents/1.0.0",
+      "files": [
+        "Amazon.Lambda.ConfigEvents.1.0.0.nupkg.sha512",
+        "Amazon.Lambda.ConfigEvents.nuspec",
+        "lib/netstandard1.3/Amazon.Lambda.ConfigEvents.dll",
+        "lib/netstandard1.3/Amazon.Lambda.ConfigEvents.pdb",
+        "lib/netstandard1.3/Amazon.Lambda.ConfigEvents.xml",
+        "src/Amazon.Lambda.ConfigEvents/ConfigEvent.cs",
+        "src/Amazon.Lambda.ConfigEvents/Properties/AssemblyInfo.cs"
       ]
     },
     "Amazon.Lambda.Core/1.0.0": {
@@ -7377,6 +7403,7 @@
       "AWSSDK.DynamoDBv2 >= 3.3.4.4",
       "AWSSDK.S3 >= 3.3.5.11",
       "Amazon.Lambda.APIGatewayEvents >= 1.0.2",
+      "Amazon.Lambda.ConfigEvents >= 1.0.0",
       "Amazon.Lambda.Core >= 1.0.0",
       "Amazon.Lambda.S3Events >= 1.0.1",
       "Amazon.Lambda.SNSEvents >= 1.0.0",
