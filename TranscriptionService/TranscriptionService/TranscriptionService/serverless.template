@@ -25,6 +25,106 @@
           }
         }
       }
+    },
+
+	"InitTranscript" : {
+      "Type" : "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "TranscriptionService::TranscriptionService.Functions::InitTranscript",
+        "Runtime": "dotnetcore1.0",
+        "CodeUri": "",
+        "Description": "Function get pre-signed url to wav fiel in S3",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [ "AWSLambdaFullAccess" ],		
+        "Events": {
+          "PutResource": {
+            "Type": "S3",
+            "Properties": {
+              "Bucket": {"Ref":"WavFilesBucket"},
+			  "Events": "s3:ObjectCreated:*"
+            }
+          }
+        }
+	  }      
+    },
+
+	"WavFilesBucket" : {
+	 "Type" : "AWS::S3::Bucket"
+	 },    
+
+	"ProcessTranscripts" : {
+      "Type" : "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "TranscriptionService::TranscriptionService.Functions::ProcessTranscripts",
+        "Runtime": "dotnetcore1.0",
+        "CodeUri": "",
+        "Description": "Function to send wav file to Voci",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [ "AWSLambdaFullAccess" ],
+        "Environment" : {
+          "Variables" : {
+            "VociToken" : ""
+          }
+        },
+        "Events": {
+          "PutResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/process-transcripts",
+              "Method": "GET"
+            }
+          }
+        }
+      }
+    },
+
+	"GetTranscripts" : {
+      "Type" : "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "TranscriptionService::TranscriptionService.Functions::ProcessTranscripts",
+        "Runtime": "dotnetcore1.0",
+        "CodeUri": "",
+        "Description": "Function to get transcripts from Voci",
+        "MemorySize": 256,
+        "Timeout": 30,
+        "Role": null,
+        "Policies": [ "AWSLambdaFullAccess" ],
+        "Environment" : {
+          "Variables" : {
+            "VociToken" : ""
+          }
+        },
+        "Events": {
+          "PutResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/get-transcripts",
+              "Method": "GET"
+            }
+          }
+        }
+      }
+    },
+
+	"TranscriptsTable" : {
+        "Type" : "AWS::DynamoDB::Table",        
+        "Properties" : {
+            "TableName" : "Transcripts",
+            "AttributeDefinitions" : [
+              {"AttributeName" : "Id", "AttributeType" : "S"}
+            ],
+            "KeySchema"            : [
+              {"AttributeName" : "Id", "KeyType" : "HASH"}
+            ],
+            "ProvisionedThroughput" : {
+                "ReadCapacityUnits" : "10",
+                "WriteCapacityUnits" : "10"
+            }
+        }
     }
 
   },

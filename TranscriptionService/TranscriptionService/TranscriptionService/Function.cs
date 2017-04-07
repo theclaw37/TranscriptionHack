@@ -14,6 +14,7 @@ using Newtonsoft.Json;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
+using Amazon.DynamoDBv2.Model;
 using Amazon.S3;
 using Amazon.Lambda.S3Events;
 using Amazon.S3.Model;
@@ -30,6 +31,7 @@ namespace TranscriptionService
 
         IDynamoDBContext DDBContext { get; set; }
         IAmazonS3 S3Client { get; set; }
+        AmazonDynamoDBClient DDBClient { get; set; }
 
         /// <summary>
         /// Default constructor that Lambda will invoke.
@@ -39,7 +41,8 @@ namespace TranscriptionService
             AWSConfigsDynamoDB.Context.TypeMappings[typeof(Transcript)] = new Amazon.Util.TypeMapping(typeof(Transcript), "Transcripts");            
 
             var config = new DynamoDBContextConfig { Conversion = DynamoDBEntryConversion.V2 };
-            DDBContext = new DynamoDBContext(new AmazonDynamoDBClient(), config);
+            DDBClient = new AmazonDynamoDBClient();
+            DDBContext = new DynamoDBContext(DDBClient, config);
             S3Client = new AmazonS3Client();
         }
 
@@ -50,7 +53,7 @@ namespace TranscriptionService
         /// <param name="evnt"></param>
         /// <param name="context"></param>
         /// <returns></returns>
-        public async Task FunctionHandler(S3Event evnt, ILambdaContext context)
+        public async Task InitTranscript(S3Event evnt, ILambdaContext context)
         {
             var s3Event = evnt.Records?[0].S3;
             if (s3Event == null)
@@ -70,8 +73,9 @@ namespace TranscriptionService
                 var transcript = new Transcript
                 {
                     CreatedOn = DateTime.Now,
+                    ModifiedOn = DateTime.Now,
                     Id = s3Event.Object.Key,
-                    FileUrl = S3Client.GetPreSignedURL(preSignedUrlRequest)
+                    FileUrl = S3Client.GetPreSignedURL(preSignedUrlRequest)                  
                 };               
 
                 context.Logger.LogLine($"Saving transcript with id {transcript.Id}");
@@ -108,18 +112,21 @@ namespace TranscriptionService
         public async Task<APIGatewayProxyResponse> ProcessTranscripts(APIGatewayProxyRequest request, ILambdaContext context)
         {
             context.Logger.LogLine("Getting transcripts");
-            var search = DDBContext.ScanAsync<Transcript>(new[] {new ScanCondition("VociRequestId", ScanOperator.IsNull)});
+            var search = DDBContext.ScanAsync<Transcript>(new[] {new ScanCondition("VociRequestId", ScanOperator.IsNull) });
             var transcripts = await search.GetNextSetAsync();
             context.Logger.LogLine($"Found {transcripts.Count} transcripts");
 
             foreach (var transcript in transcripts)
             {
                 await SendTranscriptToVoci(transcript);
+                context.Logger.LogLine($"Transcirpot processed: {transcript.Id} - requestId: {transcript.VociRequestId}");
             }
 
-            await DDBContext.SaveAsync(transcripts);
-            
-            var response = new APIGatewayProxyResponse
+            context.Logger.LogLine("Save transcript started");
+            //await DDBContext.SaveAsync(transcripts, new DynamoDBOperationConfig { Conversion = DynamoDBEntryConversion.V2, IndexName = "Id" });
+            UpdateTranscripts(transcripts);
+            context.Logger.LogLine("Save transcript ended");
+           var response = new APIGatewayProxyResponse
             {
                 StatusCode = (int)HttpStatusCode.OK,
                 Body = JsonConvert.SerializeObject(transcripts),
@@ -156,7 +163,13 @@ namespace TranscriptionService
                 }                
             }
 
-            await DDBContext.SaveAsync(transcripts);
+            context.Logger.LogLine($"Received transcribtions");
+
+
+            //await DDBContext.SaveAsync(transcripts, new DynamoDBOperationConfig {Conversion = DynamoDBEntryConversion.V2, IndexName = "Id"});
+            UpdateTranscripts(transcripts);
+
+            context.Logger.LogLine($"Updated transcribtions");
 
             var response = new APIGatewayProxyResponse
             {
@@ -168,37 +181,81 @@ namespace TranscriptionService
             return response;
         }
 
+        private async void  UpdateTranscripts(List<Transcript> transcripts)
+        {
+            foreach (var transcript in transcripts)
+            {
+                Dictionary<string, AttributeValue> key = new Dictionary<string, AttributeValue>
+                {
+                    { "Id", new AttributeValue { S = transcript.Id } }                    
+                };
+
+                // Define attribute updates
+                Dictionary<string, AttributeValueUpdate> updates = new Dictionary<string, AttributeValueUpdate>();
+                // Update item's Setting attribute
+                if (string.IsNullOrEmpty(transcript.VociTranscript))
+                {
+                    updates["VociRequestId"] = new AttributeValueUpdate
+                    {
+                        Action = AttributeAction.PUT,
+                        Value = new AttributeValue {S = transcript.VociRequestId}
+                    };
+                }
+                else
+                {
+                    updates["VociTranscript"] = new AttributeValueUpdate
+                    {
+                        Action = AttributeAction.PUT,
+                        Value = new AttributeValue { S = transcript.VociTranscript }
+                    };
+                }
+
+                // Create UpdateItem request
+                UpdateItemRequest request = new UpdateItemRequest
+                {
+                    TableName = "Transcripts",
+                    Key = key,
+                    AttributeUpdates = updates
+                };
+
+                // Issue request
+                await DDBClient.UpdateItemAsync(request);
+            }
+        }
+
         private async Task SendTranscriptToVoci(Transcript transcript)
         {
             var client = new HttpClient();
-            
-            var zipStream = new MemoryStream();
-            using (var zipArchive = new ZipArchive(zipStream, ZipArchiveMode.Create))
-            {               
-                var zipEntry = zipArchive.CreateEntry(transcript.Id);
-                using (var zipEntryStream = zipEntry.Open())
-                using (var stream = await client.GetStreamAsync(transcript.FileUrl))
-                    await stream.CopyToAsync(zipEntryStream);                
-            }
 
-            var url = @"https://vcloud.vocitec.com/transcribe";
-
-            var token = Environment.GetEnvironmentVariable(VOCI_TOKEN);
-            var tokenContent = new StringContent(token);
-            
-            var fileContent = new StreamContent(zipStream);
-            fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
-
-            var content = new MultipartFormDataContent
+            using (var zipStream = new MemoryStream())
             {
-                {tokenContent, "token"},
-                {fileContent, "file", "file.zip"}
-            };
+                using (var zipArchive = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
+                {
+                    var zipEntry = zipArchive.CreateEntry(transcript.Id);
+                    using (var zipEntryStream = zipEntry.Open())
+                    using (var stream = await client.GetStreamAsync(transcript.FileUrl))
+                        stream.CopyToAsync(zipEntryStream).Wait();
+                }
+                
+                var url = @"https://vcloud.vocitec.com/transcribe";
 
-            var vociResponse = await client.PostAsync(url, content);
-            var json = JObject.Parse(await vociResponse.Content.ReadAsStringAsync());
-            transcript.VociRequestId = json.Value<string>("requestid");
-            transcript.RequestedOn = DateTime.Now;            
+                var token = Environment.GetEnvironmentVariable(VOCI_TOKEN);
+                var tokenContent = new StringContent(token);
+
+                zipStream.Seek(0, SeekOrigin.Begin);
+                var fileContent = new StreamContent(zipStream);
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
+
+                var content = new MultipartFormDataContent
+                {
+                    {tokenContent, "token"},
+                    {fileContent, "file", "file.zip"}
+                };
+
+                var vociResponse = await client.PostAsync(url, content);
+                var json = JObject.Parse(await vociResponse.Content.ReadAsStringAsync());
+                transcript.VociRequestId = json.Value<string>("requestid");
+            }
         }              
     }
 }
