@@ -85,7 +85,7 @@
 	"GetTranscripts" : {
       "Type" : "AWS::Serverless::Function",
       "Properties": {
-        "Handler": "TranscriptionService::TranscriptionService.Functions::ProcessTranscripts",
+        "Handler": "TranscriptionService::TranscriptionService.Functions::GetTranscripts",
         "Runtime": "dotnetcore1.0",
         "CodeUri": "",
         "Description": "Function to get transcripts from Voci",
