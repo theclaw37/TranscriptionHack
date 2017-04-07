@@ -9,15 +9,14 @@ using System.Threading.Tasks;
 using Amazon;
 using Amazon.Lambda.Core;
 using Amazon.Lambda.APIGatewayEvents;
-using Newtonsoft.Json;
-
+using Amazon.Lambda.S3Events;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.DataModel;
 using Amazon.DynamoDBv2.DocumentModel;
 using Amazon.DynamoDBv2.Model;
 using Amazon.S3;
-using Amazon.Lambda.S3Events;
 using Amazon.S3.Model;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 // Assembly attribute to enable the Lambda function's JSON input to be converted into a .NET class.
@@ -91,10 +90,10 @@ namespace TranscriptionService
         }
 
         /// <summary>
-        /// A Lambda function to respond to HTTP Get methods from API Gateway
+        /// A test Lambda function to respond to HTTP Get methods from API Gateway
         /// </summary>
         /// <param name="request"></param>
-        /// <returns>The list of blogs</returns>
+        /// <returns>A "hello world" string`</returns>
         public APIGatewayProxyResponse Get(APIGatewayProxyRequest request, ILambdaContext context)
         {
             context.Logger.LogLine("Get Request\n");
@@ -126,7 +125,7 @@ namespace TranscriptionService
             //await DDBContext.SaveAsync(transcripts, new DynamoDBOperationConfig { Conversion = DynamoDBEntryConversion.V2, IndexName = "Id" });
             UpdateTranscripts(transcripts);
             context.Logger.LogLine("Save transcript ended");
-           var response = new APIGatewayProxyResponse
+            var response = new APIGatewayProxyResponse
             {
                 StatusCode = (int)HttpStatusCode.OK,
                 Body = JsonConvert.SerializeObject(transcripts),
